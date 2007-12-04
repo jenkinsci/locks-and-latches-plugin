@@ -1,0 +1,27 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout"
+         xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:section title="Latches">
+        <f:entry title="Count down latches"
+                help="${rootURL}/../plugin/vmware/help-globalConfig.html">
+            <f:repeatable var="latch" varStatus="loopStatus" items="${descriptor.latches}" minimum="1">
+                <table width="100%">
+                    <f:entry title="Name">
+                        <input class="setting-input" type="text"
+                               name="latches.latch.name" value="${latch.name}"/>
+                    </f:entry>
+                    <f:entry title="Count" description="The number of jobs that must be waiting before the latch is opened">
+                        <input class="setting-input" type="text"
+                               name="latches.latch.count" value="${latch.count}"/>
+                    </f:entry>
+                    <f:entry title="Timeout" description="The maximum number of minutes to wait for the latch to open">
+                        <input class="setting-input" type="text"
+                               name="latches.latch.timeout" value="${latch.timeout}"/>
+                    </f:entry>
+                </table>
+                <div align="right">
+                        <f:repeatableDeleteButton/>
+                </div>
+            </f:repeatable>
+        </f:entry>
+    </f:section>
+</j:jelly>
