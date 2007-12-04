@@ -1,0 +1,27 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout"
+         xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:entry>
+        <f:repeatable var="locks" varStatus="loopStatus" items="${instance.locks}" minimum="1">
+            <table width="100%">
+                <f:entry title="Name:">
+                    <table width="100%">
+                        <tr>
+                            <td width="80%">
+                                <select class="setting-input" name="locks.locks.name">
+                                    <j:forEach var="i" items="${descriptor.lockNames}">
+                                        <f:option selected="${i==locks.name}" value="${i}">${i}</f:option>
+                                    </j:forEach>
+                                </select>
+                            </td>
+                            <td>
+                                <div align="left">
+                                    <f:repeatableDeleteButton/>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </f:entry>
+            </table>
+        </f:repeatable>
+    </f:entry>
+</j:jelly>
