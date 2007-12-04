@@ -10,8 +10,12 @@
 
     <artifactId>locks-and-latches</artifactId>
     <packaging>hpi</packaging>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1</version>
     <name>Hudson Locks and Latches plugin</name>
     <url>http://hudson.gotdns.com/wiki/display/HUDSON/Locks+and+Latches+plugin</url>
 
+
+  <scm>
+    <tag>locks-and-latches-0_1</tag>
+  </scm>
 </project>
