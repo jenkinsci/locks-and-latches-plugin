@@ -77,7 +77,6 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
 
     public static final class DescriptorImpl extends Descriptor<BuildWrapper> {
         private List<LockConfig> locks;
-        private Integer writeLockCount = null;
 
         DescriptorImpl() {
             super(LockWrapper.class);
@@ -139,33 +138,12 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         }
 
         /**
-         * There is a bug in the ResourceList.isCollidingWith,
-         * this method will determine the hack workaround if the bug is not fixed
+         * There wass a bug in the ResourceList.isCollidingWith,
+         * this method used to determine the hack workaround if the bug is not fixed, but now only needs to
+         * return 1.
          */
         synchronized int getWriteLockCount() {
-            if (writeLockCount == null) {
-                Resource a = new Resource(null, "a", 1);
-                Resource b = new Resource(null, "a", 1);
-                ResourceList c = new ResourceList();
-                c.w(a);
-                ResourceList d = new ResourceList();
-                d.w(b);
-                if (!c.isCollidingWith(d)) {
-                    // I think the bug is in hudson.model.Resource at or around line 69
-                    //
-                    //   this.equals(r) && r.numConcurrentWrite>count
-                    //
-                    // should read
-                    //
-                    //   this.equals(r) && r.numConcurrentWrite<=count
-                    //
-                    // but I'm unsure, hence the hack workaround
-                    writeLockCount = 5;
-                } else {
-                    writeLockCount = 1;
-                }
-            }
-            return writeLockCount;
+            return 1;
         }
     }
 
