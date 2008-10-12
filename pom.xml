@@ -10,13 +10,7 @@
 
     <artifactId>locks-and-latches</artifactId>
     <packaging>hpi</packaging>
-    <version>0.3</version>
+    <version>0.4-SNAPSHOT</version>
     <name>Hudson Locks and Latches plugin</name>
     <url>http://hudson.gotdns.com/wiki/display/HUDSON/Locks+and+Latches+plugin</url>
-
-  <scm>
-    <connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/tags/locks-and-latches-0.3</connection>
-    <developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/tags/locks-and-latches-0.3</developerConnection>
-    <url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/locks-and-latches/tags/locks-and-latches-0.3</url>
-  </scm>
 </project>
