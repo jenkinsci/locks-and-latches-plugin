@@ -1,13 +1,7 @@
 package hudson.plugins.locksandlatches;
 
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.Build;
-import hudson.model.BuildListener;
-import hudson.model.Descriptor;
-import hudson.model.Resource;
-import hudson.model.ResourceActivity;
-import hudson.model.ResourceList;
+import hudson.model.*;
 import hudson.tasks.BuildWrapper;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
@@ -15,7 +9,13 @@ import org.kohsuke.stapler.StaplerRequest;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 /**
@@ -56,7 +56,65 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
 
     @Override
     public Environment setUp(AbstractBuild abstractBuild, Launcher launcher, BuildListener buildListener) throws IOException, InterruptedException {
+        final List<ReentrantLock> backups = new ArrayList<ReentrantLock>();
+        List<LockWaitConfig> locks = new ArrayList<LockWaitConfig>(this.locks);
+        // sort this list of locks so that we _always_ ask for the locks in order
+        Collections.sort(locks, new Comparator<LockWaitConfig>() {
+            public int compare(LockWaitConfig o1, LockWaitConfig o2) {
+                return o1.getName().compareTo(o2.getName());
+            }
+        });
+        for (LockWaitConfig lock : locks) {
+            ReentrantLock backupLock;
+            do {
+                backupLock = DESCRIPTOR.backupLocks.get(lock.getName());
+                if (backupLock == null) {
+                    DESCRIPTOR.backupLocks.putIfAbsent(lock.getName(), new ReentrantLock());
+                }
+            } while (backupLock == null);
+            backups.add(backupLock);
+        }
+        buildListener.getLogger().println("[locks-and-latches] Checking to see if we really have the locks");
+        boolean haveAll = false;
+        while (!haveAll) {
+            haveAll = true;
+            List<ReentrantLock> locked = new ArrayList<ReentrantLock>();
+            DESCRIPTOR.lockingLock.lock();
+            try {
+                for (ReentrantLock lock : backups) {
+                    if (lock.tryLock()) {
+                        locked.add(lock);
+                    } else {
+                        haveAll = false;
+                        break;
+                    }
+                }
+                if (!haveAll) {
+                    // release them all
+                    for (ReentrantLock lock : locked) {
+                        lock.unlock();
+                    }
+                }
+            } finally {
+                DESCRIPTOR.lockingLock.lock();
+            }
+            if (!haveAll) {
+                buildListener.getLogger().println("[locks-and-latches] Could not get all the locks... sleeping for 1 minute");
+                TimeUnit.SECONDS.sleep(60);
+            }
+        }
+        buildListener.getLogger().println("[locks-and-latches] Have all the locks, build can start");
+
         return new Environment() {
+            @Override
+            public boolean tearDown(AbstractBuild abstractBuild, BuildListener buildListener) throws IOException, InterruptedException {
+                buildListener.getLogger().println("[locks-and-latches] Releasing all the locks");
+                for (ReentrantLock lock : backups) {
+                    lock.unlock();
+                }
+                buildListener.getLogger().println("[locks-and-latches] All the locks released");
+                return super.tearDown(abstractBuild, buildListener);
+            }
         };
     }
 
@@ -71,6 +129,14 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
 
     public static final class DescriptorImpl extends Descriptor<BuildWrapper> {
         private List<LockConfig> locks;
+
+        /**
+         * required to work around https://hudson.dev.java.net/issues/show_bug.cgi?id=2450
+         */
+        private transient ConcurrentMap<String, ReentrantLock> backupLocks =
+                new ConcurrentHashMap<String, ReentrantLock>();
+
+        private transient ReentrantLock lockingLock = new ReentrantLock();
 
         DescriptorImpl() {
             super(LockWrapper.class);
