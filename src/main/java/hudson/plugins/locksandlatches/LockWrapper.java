@@ -96,7 +96,7 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
                     }
                 }
             } finally {
-                DESCRIPTOR.lockingLock.lock();
+                DESCRIPTOR.lockingLock.unlock();
             }
             if (!haveAll) {
                 buildListener.getLogger().println("[locks-and-latches] Could not get all the locks... sleeping for 1 minute");
