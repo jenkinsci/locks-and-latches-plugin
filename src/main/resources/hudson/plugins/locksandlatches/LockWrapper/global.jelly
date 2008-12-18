@@ -2,7 +2,7 @@
          xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <f:section title="Locks">
         <f:entry title="Locks"
-                help="${rootURL}/../plugin/vmware/help-globalConfig.html">
+                help="plugin/locks-and-latches/help-globalConfig.html">
             <f:repeatable var="lock" varStatus="loopStatus" items="${descriptor.locks}" minimum="1">
                 <table width="100%">
                     <f:entry title="name">

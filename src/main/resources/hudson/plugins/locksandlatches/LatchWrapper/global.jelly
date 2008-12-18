@@ -2,7 +2,7 @@
          xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <f:section title="Latches">
         <f:entry title="Count down latches"
-                help="${rootURL}/../plugin/vmware/help-globalConfig.html">
+                help="plugin/locks-and-latches/help-globalConfig.html">
             <f:repeatable var="latch" varStatus="loopStatus" items="${descriptor.latches}" minimum="1">
                 <table width="100%">
                     <f:entry title="Name">
