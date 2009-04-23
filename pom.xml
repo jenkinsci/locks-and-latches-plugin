@@ -12,5 +12,5 @@
     <packaging>hpi</packaging>
     <version>0.5-SNAPSHOT</version>
     <name>Hudson Locks and Latches plugin</name>
-    <url>http://hudson.gotdns.com/wiki/display/HUDSON/Locks+and+Latches+plugin</url>
+    <url>http://wiki.hudson-ci.org/display/HUDSON/Locks+and+Latches+plugin</url>
 </project>
