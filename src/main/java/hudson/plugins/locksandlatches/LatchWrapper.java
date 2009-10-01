@@ -1,11 +1,12 @@
 package hudson.plugins.locksandlatches;
 
+import hudson.Extension;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
-import hudson.model.Build;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.tasks.BuildWrapper;
+import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -13,7 +14,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -30,11 +30,6 @@ public class LatchWrapper extends BuildWrapper {
     public Environment setUp(AbstractBuild abstractBuild, Launcher launcher, BuildListener buildListener) throws IOException, InterruptedException {
         return new Environment() {
         };
-    }
-
-    @Override
-    public Environment setUp(Build build, Launcher launcher, BuildListener buildListener) throws IOException, InterruptedException {
-        return setUp((AbstractBuild) build, launcher, buildListener);
     }
 
     public String getDisplayName() {
@@ -62,16 +57,17 @@ public class LatchWrapper extends BuildWrapper {
         }
 
         @Override
-        public BuildWrapper newInstance(StaplerRequest req) throws FormException {
+        public BuildWrapper newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             List<LatchWaitConfig> latches = req.bindParametersToList(LatchWaitConfig.class, "latches.latches.");
             return new LatchWrapper(); //TODO
         }
 
-        public boolean configure(StaplerRequest req) throws FormException {
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
             req.bindParameters(this, "latches.");
             latches = req.bindParametersToList(LatchConfig.class, "latches.latch.");
             save();
-            return super.configure(req);
+            return super.configure(req, formData);
         }
 
         public List<LatchConfig> getLatches() {
@@ -112,10 +108,12 @@ public class LatchWrapper extends BuildWrapper {
 
     }
 
+    @Override
     public Descriptor<BuildWrapper> getDescriptor() {
         return DESCRIPTOR;
     }
 
+    // @Extension
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     public static final class LatchConfig implements Serializable {
@@ -158,6 +156,7 @@ public class LatchWrapper extends BuildWrapper {
             this.timeout = timeout;
         }
 
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
@@ -169,6 +168,7 @@ public class LatchWrapper extends BuildWrapper {
             return true;
         }
 
+        @Override
         public int hashCode() {
             int result;
             result = (name != null ? name.hashCode() : 0);

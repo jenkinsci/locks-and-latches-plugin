@@ -1,8 +1,10 @@
 package hudson.plugins.locksandlatches;
 
+import hudson.Extension;
 import hudson.Launcher;
 import hudson.model.*;
 import hudson.tasks.BuildWrapper;
+import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -39,10 +41,12 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         this.locks = locks;
     }
 
+    @Override
     public Descriptor<BuildWrapper> getDescriptor() {
         return DESCRIPTOR;
     }
 
+    @Extension
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     public ResourceList getResourceList() {
@@ -118,11 +122,6 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         };
     }
 
-    @Override
-    public Environment setUp(Build build, Launcher launcher, BuildListener buildListener) throws IOException, InterruptedException {
-        return setUp((AbstractBuild) build, launcher, buildListener);
-    }
-
     public String getDisplayName() {
         return DESCRIPTOR.getDisplayName();
     }
@@ -149,16 +148,17 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
 
 
         @Override
-        public BuildWrapper newInstance(StaplerRequest req) throws FormException {
+        public BuildWrapper newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             List<LockWaitConfig> locks = req.bindParametersToList(LockWaitConfig.class, "locks.locks.");
             return new LockWrapper(locks);
         }
 
-        public boolean configure(StaplerRequest req) throws FormException {
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
             req.bindParameters(this, "locks.");
             locks = req.bindParametersToList(LockConfig.class, "locks.lock.");
             save();
-            return super.configure(req);
+            return super.configure(req, formData);
         }
 
         public List<LockConfig> getLocks() {
@@ -227,6 +227,7 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
             this.name = name;
         }
 
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
@@ -238,6 +239,7 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
             return true;
         }
 
+        @Override
         public int hashCode() {
             int result;
             result = (name != null ? name.hashCode() : 0);
