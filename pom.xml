@@ -13,4 +13,11 @@
     <version>0.5-SNAPSHOT</version>
     <name>Hudson Locks and Latches plugin</name>
     <url>http://wiki.hudson-ci.org/display/HUDSON/Locks+and+Latches+plugin</url>
+
+    <developers>
+      <developer>
+        <id>stephenconnolly</id>
+        <name>Stephen Connolly</name>
+      </developer>
+    </developers>
 </project>
