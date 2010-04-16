@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * Created by IntelliJ IDEA.
@@ -159,6 +160,27 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
             locks = req.bindParametersToList(LockConfig.class, "locks.lock.");
             save();
             return super.configure(req, formData);
+        }
+
+        @Override
+        public synchronized void save() {
+            // let's remove blank locks
+            List<LockConfig> blankLocks = new ArrayList<LockConfig>();
+            for(LockConfig lock: getLocks()) {
+                if(StringUtils.isBlank(lock.getName())) {
+                    blankLocks.add(lock);
+                }
+            }
+            locks.removeAll(blankLocks);
+
+            // now, we can safely sort remaining locks
+            Collections.sort(this.locks, new Comparator<LockConfig>() {
+                public int compare(LockConfig lock1, LockConfig lock2) {
+                    return lock1.getName().compareToIgnoreCase(lock2.getName());
+                }
+            });
+            
+            super.save();
         }
 
         public List<LockConfig> getLocks() {

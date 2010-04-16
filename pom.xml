@@ -19,5 +19,9 @@
         <id>stephenconnolly</id>
         <name>Stephen Connolly</name>
       </developer>
+      <developer>
+        <id>rseguy</id>
+        <name>Romain Seguy</name>
+      </developer>
     </developers>
 </project>
