@@ -10,7 +10,7 @@
 
     <artifactId>locks-and-latches</artifactId>
     <packaging>hpi</packaging>
-    <version>0.6-SNAPSHOT</version>
+    <version>0.6</version>
     <name>Hudson Locks and Latches plugin</name>
     <url>http://wiki.hudson-ci.org/display/HUDSON/Locks+and+Latches+plugin</url>
 
@@ -24,4 +24,10 @@
         <name>Romain Seguy</name>
       </developer>
     </developers>
+
+  <scm>
+    <connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/tags/locks-and-latches-0.6</connection>
+    <developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/tags/locks-and-latches-0.6</developerConnection>
+    <url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/locks-and-latches/tags/locks-and-latches-0.6</url>
+  </scm>
 </project>
