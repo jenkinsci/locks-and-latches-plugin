@@ -1,3 +1,27 @@
+/*
+ * The MIT License
+ *
+ * Copyright (c) 2007-2011, Stephen Connolly, Alan Harder, Romain Seguy
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package hudson.plugins.locksandlatches;
 
 import hudson.Extension;
@@ -19,6 +43,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
+import org.apache.commons.collections.Closure;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.Predicate;
 import org.apache.commons.lang.StringUtils;
 
 /**
@@ -50,6 +77,9 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
     @Extension
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
+    /**
+     * @see ResourceActivity#getResourceList()
+     */
     public ResourceList getResourceList() {
         ResourceList resources = new ResourceList();
         for (LockWaitConfig lock : locks) {
@@ -58,38 +88,53 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         return resources;
     }
 
-
     @Override
     public Environment setUp(AbstractBuild abstractBuild, Launcher launcher, BuildListener buildListener) throws IOException, InterruptedException {
-        final List<ReentrantLock> backups = new ArrayList<ReentrantLock>();
+        final List<NamedReentrantLock> backups = new ArrayList<NamedReentrantLock>();
         List<LockWaitConfig> locks = new ArrayList<LockWaitConfig>(this.locks);
+
         // sort this list of locks so that we _always_ ask for the locks in order
         Collections.sort(locks, new Comparator<LockWaitConfig>() {
             public int compare(LockWaitConfig o1, LockWaitConfig o2) {
                 return o1.getName().compareTo(o2.getName());
             }
         });
+
+        // build the list of "real" locks
         for (LockWaitConfig lock : locks) {
-            ReentrantLock backupLock;
+            NamedReentrantLock backupLock;
             do {
                 backupLock = DESCRIPTOR.backupLocks.get(lock.getName());
                 if (backupLock == null) {
-                    DESCRIPTOR.backupLocks.putIfAbsent(lock.getName(), new ReentrantLock());
+                    DESCRIPTOR.backupLocks.putIfAbsent(lock.getName(), new NamedReentrantLock(lock.getName()));
                 }
             } while (backupLock == null);
             backups.add(backupLock);
         }
-        buildListener.getLogger().println("[locks-and-latches] Checking to see if we really have the locks");
+
+        final StringBuilder locksToGet = new StringBuilder();
+        CollectionUtils.forAllDo(backups, new Closure() {
+            public void execute(Object input) {
+                locksToGet.append(((NamedReentrantLock) input).getName()).append(", ");
+            }
+        });
+
+        buildListener.getLogger().println("[locks-and-latches] Locks to get: " + locksToGet.substring(0, locksToGet.length()-2));
+
         boolean haveAll = false;
         while (!haveAll) {
             haveAll = true;
-            List<ReentrantLock> locked = new ArrayList<ReentrantLock>();
+            List<NamedReentrantLock> locked = new ArrayList<NamedReentrantLock>();
+
             DESCRIPTOR.lockingLock.lock();
             try {
-                for (ReentrantLock lock : backups) {
+                for (NamedReentrantLock lock : backups) {
+                    buildListener.getLogger().print("[locks-and-latches] Trying to get " + lock.getName() + "... ");
                     if (lock.tryLock()) {
+                        buildListener.getLogger().println(" Success");
                         locked.add(lock);
                     } else {
+                        buildListener.getLogger().println(" Failed, releasing all locks");
                         haveAll = false;
                         break;
                     }
@@ -103,11 +148,13 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
             } finally {
                 DESCRIPTOR.lockingLock.unlock();
             }
+            
             if (!haveAll) {
-                buildListener.getLogger().println("[locks-and-latches] Could not get all the locks... sleeping for 1 minute");
+                buildListener.getLogger().println("[locks-and-latches] Could not get all the locks, sleeping for 1 minute...");
                 TimeUnit.SECONDS.sleep(60);
             }
         }
+
         buildListener.getLogger().println("[locks-and-latches] Have all the locks, build can start");
 
         return new Environment() {
@@ -131,11 +178,14 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         private List<LockConfig> locks;
 
         /**
-         * required to work around https://hudson.dev.java.net/issues/show_bug.cgi?id=2450
+         * Required to work around HUDSON-2450.
          */
-        private transient ConcurrentMap<String, ReentrantLock> backupLocks =
-                new ConcurrentHashMap<String, ReentrantLock>();
+        private transient ConcurrentMap<String, NamedReentrantLock> backupLocks =
+                new ConcurrentHashMap<String, NamedReentrantLock>();
 
+        /**
+         * Used to guarantee exclusivity when a build tries to get all its locks.
+         */
         private transient ReentrantLock lockingLock = new ReentrantLock();
 
         DescriptorImpl() {
@@ -165,14 +215,12 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         @Override
         public synchronized void save() {
             // let's remove blank locks
-            List<LockConfig> blankLocks = new ArrayList<LockConfig>();
-            for(LockConfig lock: getLocks()) {
-                if(StringUtils.isBlank(lock.getName())) {
-                    blankLocks.add(lock);
+            CollectionUtils.filter(getLocks(), new Predicate() {
+                public boolean evaluate(Object object) {
+                    return StringUtils.isNotBlank(((LockConfig) object).getName());
                 }
-            }
-            locks.removeAll(blankLocks);
-
+            });
+            
             // now, we can safely sort remaining locks
             Collections.sort(this.locks, new Comparator<LockConfig>() {
                 public int compare(LockConfig lock1, LockConfig lock2) {
@@ -305,5 +353,26 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
 
     }
 
+    /**
+     * Extends {@code ReentrantLock} to add a {@link #name} attribute (mainly
+     * for display purposes).
+     */
+    public static final class NamedReentrantLock extends ReentrantLock {
+        private String name;
+
+        public NamedReentrantLock(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+    }
+
     private static final Logger LOGGER = Logger.getLogger(LockWrapper.class.getName());
+    
 }
