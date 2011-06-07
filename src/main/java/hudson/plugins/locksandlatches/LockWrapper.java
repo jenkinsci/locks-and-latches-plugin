@@ -170,6 +170,17 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         };
     }
 
+    public void makeBuildVariables(AbstractBuild build, Map<String,String> variables) {
+        final StringBuilder names = new StringBuilder();
+        for (LockWaitConfig lock : locks) {
+            if (names.length() > 0) {
+                names.append(',');
+            }
+            names.append(lock.getName());
+        }
+        variables.put("LOCKS", names.toString());
+    }
+
     public String getDisplayName() {
         return DESCRIPTOR.getDisplayName();
     }
