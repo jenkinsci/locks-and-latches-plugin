@@ -37,12 +37,15 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 import org.apache.commons.collections.Closure;
 import org.apache.commons.collections.CollectionUtils;
@@ -84,7 +87,12 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
     public ResourceList getResourceList() {
         ResourceList resources = new ResourceList();
         for (LockWaitConfig lock : locks) {
-            resources.w(new Resource(null, "locks-and-latches/lock/" + lock.getName(), DESCRIPTOR.getWriteLockCount()));
+        	Resource resource = new Resource(null, "locks-and-latches/lock/" + lock.getName(), DESCRIPTOR.getWriteLockCount());
+        	if (lock.isShared()) {
+        	    resources.r(resource);
+        	} else {
+        	    resources.w(resource);
+        	}
         }
         return resources;
     }
@@ -102,6 +110,7 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         });
 
         // build the list of "real" locks
+        final Map<String,Boolean> sharedLocks = new HashMap<String,Boolean>();
         for (LockWaitConfig lock : locks) {
             NamedReentrantLock backupLock;
             do {
@@ -111,6 +120,7 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
                 }
             } while (backupLock == null);
             backups.add(backupLock);
+            sharedLocks.put(lock.getName(), lock.isShared());
         }
 
         final StringBuilder locksToGet = new StringBuilder();
@@ -130,8 +140,15 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
             DESCRIPTOR.lockingLock.lock();
             try {
                 for (NamedReentrantLock lock : backups) {
-                    buildListener.getLogger().print("[locks-and-latches] Trying to get " + lock.getName() + "... ");
-                    if (lock.tryLock()) {
+                	boolean shared = sharedLocks.get(lock.getName());
+                	buildListener.getLogger().print("[locks-and-latches] Trying to get " + lock.getName() + " in " + (shared ? "shared" : "exclusive") + " mode... ");
+                	Lock actualLock;
+                	if (shared) {
+                	    actualLock = lock.readLock();
+                	} else {
+                	    actualLock = lock.writeLock();
+                	}
+                	if (actualLock.tryLock()) {
                         buildListener.getLogger().println(" Success");
                         locked.add(lock);
                     } else {
@@ -142,9 +159,16 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
                 }
                 if (!haveAll) {
                     // release them all
-                    for (ReentrantLock lock : locked) {
-                        lock.unlock();
-                    }
+                	for (NamedReentrantLock lock : locked) {
+                	    boolean shared = sharedLocks.get(lock.getName());
+                	    Lock actualLock;
+                	    if (shared) {
+                	        actualLock = lock.readLock();
+                	    } else {
+                	        actualLock = lock.writeLock();
+                	    }
+                	    actualLock.unlock();
+                	}
                 }
             } finally {
                 DESCRIPTOR.lockingLock.unlock();
@@ -162,8 +186,15 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
             @Override
             public boolean tearDown(AbstractBuild abstractBuild, BuildListener buildListener) throws IOException, InterruptedException {
                 buildListener.getLogger().println("[locks-and-latches] Releasing all the locks");
-                for (ReentrantLock lock : backups) {
-                    lock.unlock();
+                for (NamedReentrantLock lock : backups) {
+                    boolean shared = sharedLocks.get(lock.getName());
+                    Lock actualLock;
+                    if (shared) {
+                        actualLock = lock.readLock();
+                    } else {
+                        actualLock = lock.writeLock();
+                    }
+                    actualLock.unlock();
                 }
                 buildListener.getLogger().println("[locks-and-latches] All the locks released");
                 return super.tearDown(abstractBuild, buildListener);
@@ -331,14 +362,16 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
 
     public static final class LockWaitConfig implements Serializable {
         private String name;
+        private boolean shared;
         private transient LockConfig lock;
 
         public LockWaitConfig() {
         }
 
         @DataBoundConstructor
-        public LockWaitConfig(String name) {
+        public LockWaitConfig(String name, boolean shared) {
             this.name = name;
+            this.shared = shared;
         }
 
         public LockConfig getLock() {
@@ -362,6 +395,14 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
         public void setName(String name) {
             setLock(DESCRIPTOR.getLock(this.name = name));
         }
+        
+        public boolean isShared() {
+            return shared;
+        }
+
+        public void setShared(boolean shared) {
+            this.shared = shared;
+        }
 
     }
 
@@ -369,7 +410,7 @@ public class LockWrapper extends BuildWrapper implements ResourceActivity {
      * Extends {@code ReentrantLock} to add a {@link #name} attribute (mainly
      * for display purposes).
      */
-    public static final class NamedReentrantLock extends ReentrantLock {
+    public static final class NamedReentrantLock extends ReentrantReadWriteLock {
         private String name;
 
         public NamedReentrantLock(String name) {
