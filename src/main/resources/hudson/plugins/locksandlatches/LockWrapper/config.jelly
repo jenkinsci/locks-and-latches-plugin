@@ -38,6 +38,10 @@
                                 </select>
                             </td>
                             <td>
+                            	<f:checkbox checked="${locks.shared}" name="locks.locks.shared" />
+                            	<label class="attach-previous">Shared</label>
+                            </td>
+                            <td>
                                 <div align="left">
                                     <f:repeatableDeleteButton/>
                                 </div>
