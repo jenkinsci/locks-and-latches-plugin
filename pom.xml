@@ -39,9 +39,9 @@
     </build>
 
     <scm>
-        <connection>scm:git:git://github.com/hudson/locks-and-latches-plugin.git</connection>
-        <developerConnection>scm:git:git@github.com:hudson/locks-and-latches-plugin.git</developerConnection>
-        <url>http://github.com/hudson/locks-and-latches-plugin</url>
+        <connection>scm:git:git://github.com/jenkinsci/locks-and-latches-plugin.git</connection>
+        <developerConnection>scm:git:git@github.com:jenkinsci/locks-and-latches-plugin.git</developerConnection>
+        <url>http://github.com/jenkinsci/locks-and-latches-plugin</url>
     </scm>
   
     <distributionManagement>
